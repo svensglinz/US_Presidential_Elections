@@ -1,3 +1,3 @@
 # US_Presidential_Elections
 
-![](out.png)
+ <img src="out.png" width="500" height="500"> 
