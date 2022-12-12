@@ -17,7 +17,6 @@ font_add(
 showtext_auto(enable = TRUE)
 showtext_opts(dpi = 500)
 
-
 # read in cleaned files
 donations_1988 <- fread("Election_1988/donations_1988.csv", header = TRUE, sep = ",", colClasses = c("character"))
 donations_1992 <- fread("Election_1992/donations_1992.csv", header = TRUE, sep = ",", colClasses = c("character"))
@@ -29,8 +28,6 @@ donations_2012 <- fread("Election_2012/donations_2012.csv", header = TRUE, sep =
 donations_2016 <- fread("Election_2016/donations_2016.csv", header = TRUE, sep = ",", colClasses = c("character"))
 donations_2020 <- fread("Election_2020/donations_2020.csv", header = TRUE, sep = ",", colClasses = c("character"))
 
-# also calculate Ratio_F somehow !!!
-# bind files from each election year together & format data correctly (leading 0!)
 joined <- bind_rows(
     donations_1992, donations_1996, donations_2000,
     donations_2004, donations_2008, donations_2012, donations_2016,
@@ -56,33 +53,19 @@ joined <- joined |>
 
 # format data for ratio calculation
 ratio_df <- joined |>
-    mutate(
-        MONTH = lubridate::month(TRANSACTION_DT),
-        GENDER = ifelse(is.na(GENDER), "NA", GENDER)
-    ) |>
-    group_by(Cand_Name, GENDER, YEAR, MONTH, Cand_Party_Affiliation) |>
+    filter(YEAR)
+mutate(
+    MONTH = lubridate::month(TRANSACTION_DT),
+    GENDER = ifelse(is.na(GENDER), "NA", GENDER)
+) |>
+    group_by(CANDIDATE, GENDER, YEAR, MONTH, PARTY) |>
     summarize(SUM = sum(TRANSACTION_AMT)) |>
     pivot_wider(names_from = GENDER, values_from = SUM) |>
     rename(FEMALE = F, MALE = M, UNKNOWN = `NA`) |>
     as.data.frame()
 
-ratio_df <- ratio_df |>
+ratio_df <- lazy_dt(ratio_df) |>
     mutate(RATIO_F = FEMALE / (FEMALE + MALE))
-
-# get the position of the Name label in the plot
-pos <- ratio_df |>
-    filter(MONTH == "11") |>
-    select(Cand_Name, YEAR, RATIO_F) |>
-    rename(POS = RATIO_F)
-
-ratio_df <- ratio_df |>
-    left_join(pos, by = c("Cand_Name", "YEAR"))
-
-# adjust y- position of Trump 2016 such that it does not overlap with Romney
-joined <- joined |>
-    mutate(
-        POS = ifelse(ELECTION_YEAR == 2016 & Cand_Party_Affiliation == "REP", POS - 0.01, POS)
-    )
 
 # assemble plot
 ratio_df <- ratio_df |>
@@ -92,8 +75,8 @@ as_tibble(ratio_df) |>
     filter(MONTH != "12") |>
     ggplot(aes(
         x = MONTH, y = RATIO_F,
-        linetype = Cand_Party_Affiliation,
-        group = interaction(YEAR, Cand_Party_Affiliation),
+        linetype = PARTY,
+        group = interaction(YEAR, PARTY),
         color = YEAR,
     )) +
     geom_line() +
@@ -101,17 +84,18 @@ as_tibble(ratio_df) |>
         data = as_tibble(ratio_df) |> filter(MONTH == "11"),
         aes(x = MONTH, y = RATIO_F)
     ) +
-    geom_text(
+    geom_text_repel(
+        direction = "y",
         hjust = 0,
         show.legend = FALSE,
         data = as_tibble(ratio_df) |> filter(MONTH == "11"),
-        aes(x = MONTH + .1, y = POS, label = Cand_Name)
+        aes(x = MONTH + .2, y = RATIO_F, label = CANDIDATE)
     ) +
     labs(
         x = NULL, y = NULL,
         color = NULL, linetype = NULL,
         title = "Monthly Female Donation Ratio to the nominated Presidential Candidate",
-        subtitle = "Donations to Trump in 2016 include Donations to MAKE AMERICA GREAT AGAIN PAC\nto include more donations",
+        subtitle = "Donations include Itemized direct Contributions as well as indirect Contributions via Joint Fundraising Commitees",
         caption = "Own Depiction | Source: Federal Election Commission",
     ) +
     scale_y_continuous(
@@ -140,7 +124,7 @@ as_tibble(ratio_df) |>
     ggsci::scale_color_uchicago(breaks = c(2008, 2012, 2016, 2020))
 
 # save output
-ggsave("out.png", plot = last_plot(), width = 8, height = 8, dpi = 500)
+ggsave("out_3.png", plot = last_plot(), width = 8, height = 8, dpi = 500)
 
 # rato election cycl COUNT DONORS!
 ratio_df <- lazy_dt(joined) |>
@@ -214,5 +198,3 @@ as_tibble(ratio_df) |>
     ggsci::scale_fill_jama()
 
 ggsave("out_2.png", plot = last_plot(), width = 12, height = 8, dpi = 500)
-
-# plot in terms of number of donors!
