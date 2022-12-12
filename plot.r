@@ -47,7 +47,7 @@ joined <- joined |>
             paste0(0, TRANSACTION_DT), TRANSACTION_DT
         ),
         TRANSACTION_DT = as.Date(TRANSACTION_DT, format = "%m%d%Y"),
-        Cand_Name = str_to_title(CANDIDATE),
+        CANDIDATE = str_to_title(CANDIDATE),
         TRANSACTION_AMT = as.double(TRANSACTION_AMT)
     )
 
@@ -198,3 +198,65 @@ as_tibble(ratio_df) |>
     ggsci::scale_fill_jama()
 
 ggsave("out_2.png", plot = last_plot(), width = 12, height = 8, dpi = 500)
+
+
+# calculate contribution of unemployed/ retired
+filtered <- joined |>
+    group_by(PARTY, YEAR, OCCUPATION, EMPLOYER) |>
+    summarize(SUM = sum(TRANSACTION_AMT))
+
+filtered <- filtered |>
+    filter(
+        grepl("unemploy|retir|pension|not emplo", OCCUPATION, ignore.case = TRUE) |
+            grepl("unemploy|retir|pension|not emplo", EMPLOYER, ignore.case = TRUE)
+    ) |>
+    as.data.table()
+
+# total donations per candidate and gender
+total_donations <- joined |>
+    group_by(PARTY, YEAR) |>
+    summarize(SUM = sum(TRANSACTION_AMT)) |>
+    as.data.table()
+
+unemployed_donations <- filtered |>
+    group_by(PARTY, YEAR) |>
+    summarize(SUM = sum(SUM)) |>
+    as.data.table()
+
+unemployed_donations |>
+    left_join(total_donations, by = c("YEAR", "PARTY")) |>
+    rename(TOTAL_RETIRED = SUM.x, TOTAL = SUM.y) |>
+    mutate(RATIO = TOTAL_RETIRED / TOTAL) |>
+    as_tibble() |>
+    ggplot(aes(x = YEAR, y = RATIO, group = interaction(YEAR, PARTY), fill = PARTY)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_minimal(base_family = "lmroman") +
+    theme(
+        text = element_text(family = "lmroman"),
+        plot.title = element_text(size = 16),
+        legend.text = element_text(size = 10),
+        legend.position = "bottom",
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.subtitle = element_text(size = 10),
+        plot.caption = element_text(size = 9),
+        panel.background = element_rect(color = "black", fill = "#F9F6EE"),
+        plot.background = element_rect(color = "white", fill = "#F9F6EE"),
+        plot.margin = margin(t = .2, l = .2, b = .2, r = .2, unit = "cm"),
+        axis.text = element_text(size = 10)
+    ) +
+    scale_y_continuous(
+        breaks = seq(0, .4, by = .1),
+        labels = scales::percent_format(),
+        expand = expansion(mult = c(.01, .2))
+    ) +
+    labs(
+        x = NULL, y = NULL,
+        fill = NULL, linetype = NULL,
+        title = "Ageing America",
+        subtitle = "Share of Donations from Unemployed / Retired People",
+        caption = "Own Depiction | Source: Federal Election Commission",
+    ) +
+    ggsci::scale_fill_jama()
+
+ggsave("out_4.png", plot = last_plot(), width = 12, height = 8, dpi = 500)
