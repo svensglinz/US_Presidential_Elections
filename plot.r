@@ -3,7 +3,8 @@ library(tidyverse)
 library(lubridate)
 library(showtext)
 library(ggsci)
-
+library(data.table)
+library(dtplyr)
 # add fonts for plotting
 font_add(
     family = "lmroman",
@@ -16,137 +17,95 @@ font_add(
 showtext_auto(enable = TRUE)
 showtext_opts(dpi = 500)
 
-# read, clean and modify baby names for name matching
-paths <- list.files("names")
-baby_names <- data.frame()
 
-for (i in paths) {
-    temp <- read_delim(paste("names/", i, sep = ""),
-        col_names = FALSE, delim = ","
-    )
-    baby_names <- bind_rows(baby_names, temp)
-}
+# read in cleaned files
+donations_1988 <- fread("Election_1988/donations_1988.csv", header = TRUE, sep = ",", colClasses = c("character"))
+donations_1992 <- fread("Election_1992/donations_1992.csv", header = TRUE, sep = ",", colClasses = c("character"))
+donations_1996 <- fread("Election_1996/donations_1996.csv", header = TRUE, sep = ",", colClasses = c("character"))
+donations_2000 <- fread("Election_2000/donations_2000.csv", header = TRUE, sep = ",", colClasses = c("character"))
+donations_2004 <- fread("Election_2004/donations_2004.csv", header = TRUE, sep = ",", colClasses = c("character"))
+donations_2008 <- fread("Election_2008/donations_2008.csv", header = TRUE, sep = ",", colClasses = c("character"))
+donations_2012 <- fread("Election_2012/donations_2012.csv", header = TRUE, sep = ",", colClasses = c("character"))
+donations_2016 <- fread("Election_2016/donations_2016.csv", header = TRUE, sep = ",", colClasses = c("character"))
+donations_2020 <- fread("Election_2020/donations_2020.csv", header = TRUE, sep = ",", colClasses = c("character"))
 
-colnames(baby_names) <- c("NAME", "GENDER", "COUNT")
-
-baby_names <- baby_names |>
-    mutate(NAME = toupper(NAME)) |>
-    group_by(NAME, GENDER) |>
-    summarize(COUNT = sum(COUNT)) |>
-    pivot_wider(names_from = GENDER, values_from = COUNT) |>
-    mutate(
-        M = ifelse(is.na(M), 0, M),
-        F = ifelse(is.na(F), 0, F),
-        GENDER = case_when(
-            F / (M + F) >= .75 ~ "F",
-            M / (M + F) >= .75 ~ "M"
-        )
-    ) |>
-    ungroup()
-
-# function which assigns gender to name & groups by election year & gender
-prepare <- function(file, year) {
-    file <- file |>
-        mutate(
-            ELECTION_YEAR = year,
-            TRANSACTION_DT = as.Date(TRANSACTION_DT, format = "%m%d%Y")
-        )
-
-    # clean names
-    names <- file$NAME
-
-    # first name = all characters after first comma
-    first_name <- str_split(names, pattern = ",", simplify = TRUE)[, 2]
-
-    # split by non alphanum- characters and select longest string as first name
-    first_name <- sapply(
-        str_split(first_name, "[^[:alpha:]]"),
-        function(x) x[which.max(nchar(x))]
-    )
-
-    file <- file |>
-        mutate(FIRST_NAME = first_name) |>
-        select(-NAME) |>
-        left_join(baby_names, by = c("FIRST_NAME" = "NAME")) |>
-        mutate(MONTH = lubridate::month(TRANSACTION_DT)) |>
-        group_by(CANDIDATE, GENDER, ELECTION_YEAR, MONTH) |>
-        summarize(VALUE = sum(TRANSACTION_AMT)) |>
-        pivot_wider(names_from = GENDER, values_from = VALUE) |>
-        mutate(RATIO_F = F / (M + F))
-
-    return(file)
-}
-
-# read in donation data and run prepare function
-donations_2008 <- read_csv("Election_2008/donations_2008.csv")
-donations_2008 <- prepare(donations_2008, 2008)
-
-donations_2012 <- read_csv("Election_2012/donations_2012.csv")
-donations_2012 <- prepare(donations_2012, 2012)
-
-donations_2016 <- read_csv("don_2016.csv")
-donations_2016 <- prepare(donations_2016, 2016)
-
-# change this such that they are in the same format!
-donations_2020 <- read_csv("Election_2020/donations_2020.csv")
-donations_2020 <-
-    donations_2020 |>
-    mutate(GENDER = ifelse(GENDER == "NA", NA, GENDER))
-
-donations_2020 <- donations_2020 |>
-    mutate(MONTH = lubridate::month(TRANSACTION_DT)) |>
-    group_by(CANDIDATE, GENDER, ELECTION_YEAR, MONTH) |>
-    summarize(VALUE = sum(TRANSACTION_AMT)) |>
-    pivot_wider(names_from = GENDER, values_from = VALUE) |>
-    mutate(RATIO_F = F / (M + F)) |>
-    ungroup()
-
-# bind files from each election year together & format
+# also calculate Ratio_F somehow !!!
+# bind files from each election year together & format data correctly (leading 0!)
 joined <- bind_rows(
-    donations_2008, donations_2012,
-    donations_2016, donations_2020
-) |>
-    mutate(
-        ELECTION_YEAR = as.factor(ELECTION_YEAR),
-        PARTY = ifelse(CANDIDATE %in% c("TRUMP", "ROMNEY", "MCCAIN"),
-            "REP", "DEM"
-        ),
-        CANDIDATE = str_to_title(CANDIDATE)
-    )
+    donations_1992, donations_1996, donations_2000,
+    donations_2004, donations_2008, donations_2012, donations_2016,
+    donations_2020
+)
 
-# get the position of the Name label in the plot
-pos <- joined |>
-    filter(MONTH == "11") |>
-    select(CANDIDATE, ELECTION_YEAR, RATIO_F) |>
-    rename(POS = RATIO_F)
+rm(
+    donations_1992, donations_1996, donations_2000,
+    donations_2004, donations_2008, donations_2012, donations_2016,
+    donations_2020
+)
 
 joined <- joined |>
-    left_join(pos, by = c("CANDIDATE", "ELECTION_YEAR"))
+    mutate(
+        YEAR = as.factor(YEAR),
+        TRANSACTION_DT = ifelse(nchar(TRANSACTION_DT) != 8,
+            paste0(0, TRANSACTION_DT), TRANSACTION_DT
+        ),
+        TRANSACTION_DT = as.Date(TRANSACTION_DT, format = "%m%d%Y"),
+        Cand_Name = str_to_title(CANDIDATE),
+        TRANSACTION_AMT = as.double(TRANSACTION_AMT)
+    )
+
+# format data for ratio calculation
+ratio_df <- joined |>
+    mutate(
+        MONTH = lubridate::month(TRANSACTION_DT),
+        GENDER = ifelse(is.na(GENDER), "NA", GENDER)
+    ) |>
+    group_by(Cand_Name, GENDER, YEAR, MONTH, Cand_Party_Affiliation) |>
+    summarize(SUM = sum(TRANSACTION_AMT)) |>
+    pivot_wider(names_from = GENDER, values_from = SUM) |>
+    rename(FEMALE = F, MALE = M, UNKNOWN = `NA`) |>
+    as.data.frame()
+
+ratio_df <- ratio_df |>
+    mutate(RATIO_F = FEMALE / (FEMALE + MALE))
+
+# get the position of the Name label in the plot
+pos <- ratio_df |>
+    filter(MONTH == "11") |>
+    select(Cand_Name, YEAR, RATIO_F) |>
+    rename(POS = RATIO_F)
+
+ratio_df <- ratio_df |>
+    left_join(pos, by = c("Cand_Name", "YEAR"))
 
 # adjust y- position of Trump 2016 such that it does not overlap with Romney
 joined <- joined |>
     mutate(
-        POS = ifelse(ELECTION_YEAR == 2016 & PARTY == "REP", POS - 0.01, POS)
+        POS = ifelse(ELECTION_YEAR == 2016 & Cand_Party_Affiliation == "REP", POS - 0.01, POS)
     )
+
 # assemble plot
-joined |>
+ratio_df <- ratio_df |>
+    filter(YEAR %in% c(2008, 2012, 2016, 2020))
+
+as_tibble(ratio_df) |>
     filter(MONTH != "12") |>
     ggplot(aes(
         x = MONTH, y = RATIO_F,
-        linetype = PARTY,
-        group = interaction(ELECTION_YEAR, PARTY),
-        color = ELECTION_YEAR,
+        linetype = Cand_Party_Affiliation,
+        group = interaction(YEAR, Cand_Party_Affiliation),
+        color = YEAR,
     )) +
     geom_line() +
     geom_point(
-        data = joined |> filter(MONTH == "11"),
+        data = as_tibble(ratio_df) |> filter(MONTH == "11"),
         aes(x = MONTH, y = RATIO_F)
     ) +
     geom_text(
         hjust = 0,
         show.legend = FALSE,
-        data = joined |> filter(MONTH == "11"),
-        aes(x = MONTH + .1, y = POS, label = CANDIDATE)
+        data = as_tibble(ratio_df) |> filter(MONTH == "11"),
+        aes(x = MONTH + .1, y = POS, label = Cand_Name)
     ) +
     labs(
         x = NULL, y = NULL,
@@ -178,7 +137,82 @@ joined |>
         plot.margin = margin(t = .2, l = .2, b = .2, r = .2, unit = "cm"),
         axis.text = element_text(size = 10)
     ) +
-    scale_color_uchicago(breaks = c(2008, 2012, 2016, 2020))
+    ggsci::scale_color_uchicago(breaks = c(2008, 2012, 2016, 2020))
 
 # save output
 ggsave("out.png", plot = last_plot(), width = 8, height = 8, dpi = 500)
+
+# rato election cycl COUNT DONORS!
+ratio_df <- lazy_dt(joined) |>
+    mutate(
+        GENDER = ifelse(is.na(GENDER), "NA", GENDER)
+    ) |>
+    group_by(CANDIDATE, GENDER, YEAR, ZIP_CODE, FIRST_NAME, LAST_NAME, PARTY) |>
+    summarize(SUM = sum(TRANSACTION_AMT))
+
+ratio_df <- ratio_df |>
+    as.data.frame() |>
+    lazy_dt() |>
+    group_by(CANDIDATE, YEAR, GENDER, PARTY) |>
+    summarize(COUNT = n()) |>
+    pivot_wider(names_from = GENDER, values_from = COUNT) |>
+    rename(FEMALE = F, MALE = M, UNDEFINED = `NA`)
+
+ratio_df <- ratio_df |>
+    as.data.frame() |>
+    mutate(RATIO_F = FEMALE / (MALE + FEMALE))
+
+# rato election cycl
+ratio_df <- joined |>
+    mutate(
+        GENDER = ifelse(is.na(GENDER), "NA", GENDER)
+    ) |>
+    group_by(CANDIDATE, GENDER, YEAR, PARTY) |>
+    summarize(SUM = sum(TRANSACTION_AMT)) |>
+    pivot_wider(names_from = GENDER, values_from = SUM) |>
+    rename(FEMALE = F, MALE = M, UNKNOWN = `NA`) |>
+    as.data.frame()
+
+ratio_df <- ratio_df |>
+    mutate(YEAR = fct_relevel(YEAR, as.character(seq(from = 1988, to = 2020, by = 4))))
+
+ratio_df <- ratio_df |>
+    mutate(RATIO_F = FEMALE / (FEMALE + MALE)) |>
+    as_tibble()
+
+
+as_tibble(ratio_df) |>
+    ggplot(aes(x = YEAR, y = RATIO_F, group = PARTY, fill = PARTY)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_minimal(base_family = "lmroman") +
+    theme(
+        text = element_text(family = "lmroman"),
+        plot.title = element_text(size = 16),
+        legend.text = element_text(size = 10),
+        legend.position = "bottom",
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.subtitle = element_text(size = 10),
+        plot.caption = element_text(size = 9),
+        panel.background = element_rect(color = "black", fill = "#F9F6EE"),
+        plot.background = element_rect(color = "white", fill = "#F9F6EE"),
+        plot.margin = margin(t = .2, l = .2, b = .2, r = .2, unit = "cm"),
+        axis.text = element_text(size = 10)
+    ) +
+    scale_y_continuous(
+        breaks = seq(0, .6, by = .1),
+        labels = scales::percent_format(),
+        expand = expansion(mult = c(.01, .03))
+    ) +
+    labs(
+        x = NULL, y = NULL,
+        fill = NULL, linetype = NULL,
+        title = "The Female Donor Gap between Democrates and Republicans",
+        subtitle = "Relative Share of Female Donors to the Nominated Presidential Candidate",
+        caption = "Own Depiction | Source: Federal Election Commission",
+    ) +
+    ggsci::scale_fill_jama()
+
+ggsave("out_2.png", plot = last_plot(), width = 12, height = 8, dpi = 500)
+
+# plot in terms of number of donors!
