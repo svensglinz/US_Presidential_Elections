@@ -37,7 +37,6 @@ baby_names <- lazy_dt(baby_names) |>
 
 # rename from F to Female as it is otherwise interpreted
 # as FALSE in further dbplyr operations
-
 baby_names[is.na(baby_names), ] <- 0
 baby_names <- lazy_dt(baby_names) |>
     rename(FEMALE = F, MALE = M) |>
@@ -48,8 +47,8 @@ baby_names <- lazy_dt(baby_names) |>
         )
     ) |>
     as.data.table()
-# read in candidate files and combine
 
+# read in candidate files and combine
 candidates_2008 <- read_csv("Election_2008/candidate_summary_2008.csv") |>
     mutate(YEAR = 2008)
 candidates_2012 <- read_csv("Election_2012/candidate_summary_2012.csv") |>
@@ -254,36 +253,15 @@ rm(donations_2016)
 # file is too large to read at once --> Perform cleaning in Loops!
 files <- list.files("Election_2020/by_date")
 donations_2020 <- data.table()
-counter <- 1
 
 for (i in files) {
     temp <- clean_donations(paste0("Election_2020/by_date/", i), year = 2020)
     donations_2020 <- bind_rows(as.data.frame(temp), donations_2020)
     print(paste(counter, "file read"))
-    counter <- counter + 1
 }
 
 # read transfer donations
 donations_2020_transfer <- clean_donations(transfer_path = "Election_2020/itoth.txt", year = 2020)
-write_csv(as.data.frame(donations_2020_transfer), "temp.csv")
-donations_2020_transfer <- read_csv("temp.csv", col_types = cols(.default = "c"))
-
-donations_2020 <- fread("donations_2020.csv", sep = ",", header = TRUE, colClasses = c("character"))
-
 donations_2020 <- bind_rows(as.data.frame(donations_2020_transfer), as.data.frame(donations_2020))
-
 write_csv(as.data.frame(donations_2020), "Election_2020/donations_2020.csv")
 rm(donations_2020)
-
-lazy_dt(donation_data) |>
-    group_by(CANDIDATE) |>
-    summarize(sum = sum(as.double(TRANSACTION_AMT)))
-
-lazy_dt(donations_2020_transfer) |>
-    group_by(CANDIDATE, GENDER) |>
-    summarize(sum = sum(as.double(TRANSACTION_AMT))) |>
-    mutate(GENDER = ifelse(is.na(GENDER), "NA", GENDER)) |>
-    pivot_wider(names_from = GENDER, values_from = sum) |>
-    as.data.table() |>
-    rename(FEMALE = F, MALE = M) |>
-    mutate(RATIO_F = FEMALE / (MALE + FEMALE))
