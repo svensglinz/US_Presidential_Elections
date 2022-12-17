@@ -6,6 +6,7 @@ library(data.table)
 library(tidytext)
 library(showtext)
 
+# add font for plotting
 font_add(
     family = "lmroman",
     regular = "Fonts/lmroman10_regular.ttf",
@@ -38,6 +39,9 @@ donations <- donations |>
         ),
         OCCUPATION = ifelse(OCCUPATION %in% c("ENTREPRENEUR", "ENTREPRENUER"),
             "ENTREPRENEUR", OCCUPATION
+        ), ,
+        OCCUPATION = ifelse(OCCUPATION %in% c("FARMER", "FARMING", "AGRICULTURE"),
+            "FARMER", OCCUPATION
         )
     ) |>
     group_by(PARTY, OCCUPATION) |>
@@ -86,6 +90,7 @@ major_rep <- donations |>
 # combine data frames
 plot_df <- bind_rows(major_dem, major_rep)
 
+# assemble plot
 out <- plot_df |>
     mutate(OCCUPATION = str_to_title(OCCUPATION)) |>
     ggplot(aes(x = SHARE, y = reorder_within(OCCUPATION, SHARE, LABEL), color = LABEL)) +
@@ -100,7 +105,7 @@ out <- plot_df |>
     labs(
         x = NULL,
         y = NULL,
-        title = "Professions where Donors are heavily skewed towards one Party",
+        title = "Professions where Donors are heavily skewed towards one Candidate",
         caption = "Own Depiction | Source: Federal Election Commission",
         subtitle = "Professions selected by those occuring most often and the share per Party is > 75%",
         color = NULL,
@@ -135,15 +140,25 @@ out <- plot_df |>
 
 text <- paste0(
     "Many of the professions who contributed strongly to Biden are high-income whereas\n",
-    "those donating excessively to Trump are rather lower income professions.\n",
+    "those donating excessively to Trump are rather lower-income professions.\n",
     "Besides the fact that lower income donors may be less frequent, many small donations\n",
-    "are not reported, this could possibly explain why we observe less donors in the\n",
+    "are not reported. This could possibly explain why we observe less donors in the\n",
     "professions strongly supporting Trump as opposed to Biden."
 )
 
-ggdraw(out) + draw_image(image = "biden.png", x = .307, y = .83, width = .08, height = .08, hjust = .5, vjust = .5) + draw_image(image = "trump.png", x = .798, y = .83, width = .08, height = .08, hjust = .5, vjust = .5) + draw_label(text,
-    x = .08, y = .05, hjust = 0, vjust = 0,
-    size = 9, fontfamily = "lmroman"
-)
+# add head images
+ggdraw(out) +
+    draw_image(
+        image = "pictures/biden.png",
+        x = .307, y = .83, width = .08, height = .08, hjust = .5, vjust = .5
+    ) +
+    draw_image(
+        image = "pictures/trump.png",
+        x = .798, y = .83, width = .08, height = .08, hjust = .5, vjust = .5
+    ) +
+    draw_label(
+        text,
+        x = .08, y = .05, hjust = 0, vjust = 0, size = 9, fontfamily = "lmroman"
+    )
 
-ggsave("skewed_professions.png", last_plot(), dpi = 800, width = 10.6, height = 6.83)
+ggsave("Plots/skewed_professions.png", last_plot(), dpi = 800, width = 10.6, height = 6.83)

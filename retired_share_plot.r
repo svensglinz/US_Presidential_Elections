@@ -5,6 +5,7 @@ library(cowplot)
 library(showtext)
 library(data.table)
 library(dtplyr)
+
 # add fonts for plotting
 font_add(
     family = "lmroman",
@@ -17,17 +18,15 @@ font_add(
 showtext_auto(enable = TRUE)
 showtext_opts(dpi = 800)
 
-# somehow lost 1mio lines when joining
-
 # read data set
 donations <- fread(
     "donations_1988_2020.csv",
     sep = ",", header = TRUE, colClasses = c("character")
 )
 
-# group donations by party, year and professional status & Other ID
+# group donations by party, year and professional status
 donations <- donations |>
-    group_by(PARTY, YEAR, OCCUPATION, EMPLOYER, OTHER_ID) |>
+    group_by(PARTY, YEAR, OCCUPATION, EMPLOYER) |>
     summarize(DONATION = sum(as.double(TRANSACTION_AMT))) |>
     ungroup() |>
     as.data.table()
@@ -60,8 +59,6 @@ donations <- donations |>
     ) |>
     as.data.table()
 
-
-
 # remove entries where no occupational information exists
 # group by Party & Year and Calculate donations from
 # unemployed and employed share
@@ -84,10 +81,9 @@ donations <- lazy_dt(donations) |>
     pivot_longer(3:4) |>
     as_tibble()
 
-
 # assemble plot
 out <- donations |>
-    ggplot(aes(x = YEAR, y = value, fill = interaction(name, PARTY)), show.legend = TRUE) +
+    ggplot(aes(x = YEAR, y = value, fill = interaction(name, PARTY))) +
     geom_bar(stat = "identity", position = "stack") +
     theme_minimal(base_family = "lmroman") +
     geom_segment(
@@ -104,7 +100,7 @@ out <- donations |>
     geom_text(
         data = donations |> filter(PARTY == "DEM"),
         aes(
-            family = "lmroman", x = 6, y = .36, label = "Not / Unemployed"
+            family = "lmroman", x = 6, y = .36, label = "Not -/ Unemployed"
         ),
         size = 3,
         check_overlap = TRUE
@@ -146,7 +142,8 @@ out <- donations |>
         fill = NULL, linetype = NULL,
         title = "With Age comes Political Influence?",
         subtitle = paste0(
-            "Share of Donations from Unemployed/ Retired People, 100% = Only Data which contains an Employer / Occupation"
+            "Share of Donations from Unemployed/ Retired People\n",
+            "100% = Donations which contain an Employer / Occupation (1988 - 2000  ~ 50%, 2004 - 2020 ~ 90% )"
         ),
         caption = "Own Depiction | Source: Federal Election Commission",
     ) +
@@ -166,7 +163,7 @@ text_1 <- paste("The Donation Platform ActBlue which collects donations for the 
     "Actbue have only made up a significant part of the two final Candidates donations in 2020. The huge spike in Not Employed Contributions to Democrats \n",
     "between 2016 and 2020 is likely due to ActBlue's framing of the Employment question, where Democratic Retirees who previously identified as 'retired'\n",
     "chose to state 'not employed' instead. Further, the spike in overall contribution from retirees in 2020 could also partly be due to the convenience \n",
-    "of option for the Not Employed / Retired Option when donating through ActBue or Winred",
+    "of opting for the Not Employed / Retired Option when donating through ActBue or Winred",
     sep = ""
 )
 
@@ -182,4 +179,4 @@ ggdraw(out) + draw_label(text_1,
         fontface = "bold"
     )
 
-ggsave("share_retired.png", plot = last_plot(), dpi = 800, width = 11, height = 7.35)
+ggsave("Plots/share_retired.png", plot = last_plot(), dpi = 800, width = 11, height = 7.35)
