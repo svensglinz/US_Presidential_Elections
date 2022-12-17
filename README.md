@@ -1,18 +1,27 @@
-# US_Presidential_Elections
+# :us: US Presidential Elections 
 
-## Data
+## :moneybag: Data
 
-The analyzed data consists of all direct, itdmized contributons to the nominated presidenrial candidates 
-available theough the FEC bulk dosnload. This also includes all donations made theough thied party platforms such as winred or Actblue.
+The analyzed data consists of all direct, itemized contributions which were downloaded from the [FEC Bulk Downloader](https://www.fec.gov/data/browse-data/?tab=bulk-data). This also includes all donations made theough third party platforms such as Winred or Actblue.
 
-I further include the share of donations collected theough joint dundraising comittees that was passed on to the presidential campains. This daga is also available theough the FEC dowbloadm
+I further include the share of donations collected through Joint Fundraising Comittees that were passed on to the presidential campains. This data is also available through the FEC bulk download under *any transaction from one commitee to another*
 
-Include links
-Where the number of donors are analyzedx donatiodm are grouped by ... to gather multiple donations by the same perdon
-## Gender Mapping
+## :bar_chart: Analysis
 
-## Limitations 
+Wherever the number of donors are analyzed, donations are first gruped by Name, Profession, Zip Code and Recipient Canidate in order to aggregate multiple donations by the same individual. 
 
-200usd see paper
- <img src="out_3.png" width="500" height="500"> 
- <img src="out.png" width="750" height="500"> 
+## :woman:Gender Mapping:man:
+
+A gender is assigned to each name based on data from the SSA which contains data on each baby born in the US, the name and its gender. If a name is used as Male / Female in more than 75% of cases, I determine it as exclusively Male / Female. 
+
+## Limitations
+
+By law, only donations made through third party providers (such as ActBlue or Winred)
+or those which cumulatively exceed 200 USD per cycle must be reported 
+
+eg. If somebody donates 5 * 50, only the last 50 USD are reported (once it exceeds
+the 200 USD threshold)
+However, if somebdoy donates 250 USD at once, the entire donation is recorded. 
+For more on this, see eg: [The Hidden Donor Problem](https://www.liebertpub.com/doi/10.1089/elj.2019.0593)
+
+Further, I do not exclude mistakes made when analyzing the data as the donation maze as well as how the data is recorded is quite complex, so feel free to point out any mistakes or methodological shortcomings should you see them :smile:
