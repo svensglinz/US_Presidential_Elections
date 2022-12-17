@@ -219,9 +219,7 @@ clean_donations <- function(direct_path = NA, transfer_path = NA, year) {
     # join donations onto candidate file (to only filter out donations
     # to the candidates in the "candidates" data frame)
     donation_data <- candidates |>
-        inner_join(donation_data,
-            by = c("YEAR", "CMTE_ID")
-        )
+        inner_join(donation_data, by = c("YEAR", "CMTE_ID"))
 
     name <- donation_data |>
         pull(NAME)
@@ -250,6 +248,7 @@ clean_donations <- function(direct_path = NA, transfer_path = NA, year) {
 }
 #---------------------------------------------------------------------
 
+# clean all downloaded files (itcont + ototh), write to csv
 donations_1988 <- clean_donations(direct_path = "Election_1988/itcont.txt", year = 1988)
 write_csv(as.data.frame(donations_1988), "Election_1988/donations_1988.csv")
 
@@ -286,7 +285,7 @@ donations_2016 <- clean_donations(
 )
 write_csv(as.data.frame(donations_2016), "Election_2016/donations_2016.csv")
 
-# file is too large to read at once --> Perform cleaning in Loops!
+# file is too large to read at once --> Perform cleaning in Loops
 files <- list.files("Election_2020/by_date")
 donations_2020_direct <- data.table()
 counter <- 1
@@ -319,4 +318,10 @@ joined <- bind_rows(
 )
 
 write_csv(as.data.frame(joined), "donations_1988_2020.csv")
-rm(joined)
+
+# remove all data from memory
+rm(
+    donations_1988, donations_1992, donations_1996,
+    donations_2000, donations_2008, donations_2012, donations_2016,
+    donations_2020, joined
+)

@@ -14,7 +14,7 @@ Wherever the number of donors are analyzed, donations are first gruped by Name, 
 
 A gender is assigned to each name based on data from the SSA which contains data on each baby born in the US, the name and its gender. If a name is used as Male / Female in more than 75% of cases, I determine it as exclusively Male / Female. 
 
-## Limitations
+## :warning: Limitations
 
 By law, only donations made through third party providers (such as ActBlue or Winred)
 or those which cumulatively exceed 200 USD per cycle must be reported 

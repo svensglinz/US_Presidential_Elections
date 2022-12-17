@@ -9,7 +9,7 @@ library(lubridate)
 library(ggrepel)
 library(dtplyr)
 
-
+# add font for plot
 font_add(
     family = "lmroman",
     regular = "Fonts/lmroman10_regular.ttf",
@@ -28,7 +28,7 @@ donations <- fread(
 )
 
 
-# rato election cycl COUNT DONORS!
+# group by gender, candidate & year
 donations <- lazy_dt(donations) |>
     mutate(
         GENDER = ifelse(is.na(GENDER), "NA", GENDER)
@@ -37,6 +37,7 @@ donations <- lazy_dt(donations) |>
     summarize(SUM = sum(as.double(TRANSACTION_AMT))) |>
     as.data.table()
 
+# calculate female ratio
 donations <- donations |>
     pivot_wider(names_from = GENDER, values_from = SUM) |>
     rename(FEMALE = F, MALE = M, UNDEFINED = `NA`) |>
@@ -46,9 +47,7 @@ donations <- donations |>
 # assemble plot
 out <- as_tibble(donations) |>
     ggplot(aes(x = YEAR, y = RATIO_F, group = PARTY, fill = PARTY)) +
-    # geom_area(stat = "identity", position = "dodge") +
     geom_bar(stat = "identity", position = "dodge") +
-    geom_image(aes(x = 7.5, y = .5, image = "clinton.png"), size = .07, asp = 1.8, by = "width") +
     theme_minimal(base_family = "lmroman") +
     theme(
         text = element_text(family = "lmroman"),
@@ -72,12 +71,12 @@ out <- as_tibble(donations) |>
     labs(
         x = NULL, y = NULL,
         fill = NULL, linetype = NULL,
-        title = "The Female Donor Gap between Democrates and Republicans",
-        subtitle = "Relative Share of Female Donors to the Nominated Presidential Candidate",
+        title = "The Female Donor Gap between Democrats and Republicans",
+        subtitle = "Relative Share of Female Donors to the Nominated Presidential Candidates",
         caption = "Own Depiction | Source: Federal Election Commission",
     ) +
     scale_fill_manual(
         values = c("DEM" = "#5B8FA8FF", "REP" = "#B1746FFF")
     )
 
-ggsave("female_ratio.png", plot = out, width = 11, height = 7.35, dpi = 800)
+ggsave("Plots/female_ratio.png", plot = out, width = 11, height = 7.35, dpi = 800)
